@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="내 단어장">
+<title>내 단어장</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root {
+    --bg: #0f1115; --card: #1a1d24; --card2: #232731; --line: #2e3340;
+    --text: #eef0f4; --sub: #9aa1b0; --accent: #6c8cff; --accent2: #8f6bff;
+    --good: #2fbf71; --bad: #ff5d6c; --warn: #ffb547;
+    --safe-b: env(safe-area-inset-bottom, 0px); --safe-t: env(safe-area-inset-top, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif; }
+  body { overscroll-behavior: none; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  input, select { font: inherit; }
+  #app { max-width: 560px; margin: 0 auto; min-height: 100%;
+    padding: calc(var(--safe-t) + 12px) 16px calc(var(--safe-b) + 88px); }
+  .screen { display: none; animation: fade .2s ease; }
+  .screen.on { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* 공통 */
+  .top { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 16px; }
+  .top h1 { font-size: 24px; margin: 0; letter-spacing: -.5px; }
+  .icon-btn { width: 40px; height: 40px; border-radius: 12px; background: var(--card); display: grid; place-items: center; font-size: 18px; }
+  .box { background: var(--card); border-radius: 18px; padding: 16px; margin-bottom: 12px; }
+  .muted { color: var(--sub); font-size: 14px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .btn { display: block; width: 100%; padding: 16px; border-radius: 16px; font-weight: 700; font-size: 17px; background: var(--card2); text-align: center; }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .btn.good { background: var(--good); color: #fff; }
+  .btn.bad { background: var(--bad); color: #fff; }
+  .btn:active { transform: scale(.98); }
+  .btn small { display: block; font-weight: 500; font-size: 13px; opacity: .85; margin-top: 4px; }
+  .chip { padding: 8px 14px; border-radius: 999px; background: var(--card); color: var(--sub); font-size: 14px; white-space: nowrap; }
+  .chip.on { background: var(--accent); color: #fff; }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .badge { display: inline-block; font-size: 12px; padding: 3px 8px; border-radius: 8px; background: var(--card2); color: var(--sub); }
+  .badge.new { background: rgba(108,140,255,.18); color: var(--accent); }
+  .badge.learn { background: rgba(255,181,71,.18); color: var(--warn); }
+  .badge.done { background: rgba(47,191,113,.18); color: var(--good); }
+  mark { background: rgba(108,140,255,.28); color: #fff; border-radius: 4px; padding: 0 2px; }
+  .blank { display: inline-block; min-width: 70px; border-bottom: 2px solid var(--accent); color: transparent; }
+
+  /* 홈 */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .stats b { display: block; font-size: 22px; }
+  .stats span { font-size: 12px; color: var(--sub); }
+  .bar { height: 10px; border-radius: 99px; background: var(--card2); overflow: hidden; display: flex; margin: 12px 0 8px; }
+  .bar i { display: block; height: 100%; }
+  .streak { display: flex; align-items: center; gap: 12px; }
+  .streak .fire { font-size: 34px; }
+  .streak b { font-size: 20px; }
+  .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .menu button { background: var(--card); border-radius: 16px; padding: 16px; text-align: left; }
+  .menu button b { display: block; font-size: 16px; margin-top: 6px; }
+  .menu button span { font-size: 13px; color: var(--sub); }
+  .menu button .e { font-size: 24px; }
+
+  /* 학습 카드 */
+  .progress { height: 6px; border-radius: 99px; background: var(--card); overflow: hidden; margin: 4px 0 14px; }
+  .progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .25s; }
+  .card { background: var(--card); border-radius: 24px; padding: 22px 20px; min-height: 360px; position: relative; touch-action: pan-y; transition: transform .15s; user-select: none; -webkit-user-select: none; }
+  .card .head { display: flex; justify-content: space-between; align-items: center; }
+  .card .word { font-size: 34px; font-weight: 800; letter-spacing: -.5px; margin: 34px 0 6px; text-align: center; word-break: break-word; }
+  .card .speak { display: flex; justify-content: center; margin-bottom: 8px; }
+  .speak-btn { background: var(--card2); border-radius: 999px; padding: 8px 16px; font-size: 15px; }
+  .card .hint { text-align: center; color: var(--sub); font-size: 14px; margin-top: 50px; }
+  .card .back { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 16px; }
+  .meaning { font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 12px; }
+  .syn { text-align: center; color: var(--sub); font-size: 14px; margin-bottom: 16px; }
+  .ex { background: var(--card2); border-radius: 14px; padding: 14px; }
+  .ex .en { font-size: 16px; line-height: 1.55; }
+  .ex .ko { font-size: 14px; color: var(--sub); line-height: 1.5; margin-top: 8px; }
+  .ex .tools { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .ex .tools button { font-size: 13px; color: var(--accent); }
+  .star { font-size: 22px; color: var(--sub); }
+  .star.on { color: var(--warn); }
+  .actions { margin-top: 14px; }
+  .swipe-l { transform: translateX(-30px) rotate(-3deg); }
+  .swipe-r { transform: translateX(30px) rotate(3deg); }
+
+  /* 퀴즈 */
+  .q { background: var(--card); border-radius: 24px; padding: 24px 20px; text-align: center; margin-bottom: 14px; }
+  .q .prompt { font-size: 28px; font-weight: 800; margin: 10px 0; word-break: break-word; }
+  .q .prompt.sm { font-size: 17px; font-weight: 500; line-height: 1.6; text-align: left; }
+  .opts { display: grid; gap: 10px; }
+  .opt { background: var(--card); border-radius: 16px; padding: 16px; text-align: left; font-size: 16px; border: 2px solid transparent; }
+  .opt.right { border-color: var(--good); background: rgba(47,191,113,.15); }
+  .opt.wrong { border-color: var(--bad); background: rgba(255,93,108,.15); }
+  .result { text-align: center; padding: 20px 0; }
+  .result .score { font-size: 56px; font-weight: 800; }
+
+  /* 단어 목록 */
+  .search { width: 100%; padding: 14px 16px; border-radius: 14px; border: 0; background: var(--card); color: var(--text); margin-bottom: 12px; font-size: 16px; outline: none; }
+  .item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border-bottom: 1px solid var(--line); }
+  .item .t { flex: 1; min-width: 0; }
+  .item .t b { display: block; font-size: 16px; }
+  .item .t span { font-size: 14px; color: var(--sub); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  /* 하단 탭 */
+  nav { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(15,17,21,.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line); display: flex; justify-content: center; padding: 6px 0 calc(var(--safe-b) + 6px); z-index: 10; }
+  nav .in { display: flex; width: 100%; max-width: 560px; }
+  nav button { flex: 1; padding: 6px 0; font-size: 11px; color: var(--sub); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  nav button .e { font-size: 21px; }
+  nav button.on { color: var(--text); }
+
+  /* 모달 / 토스트 */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; z-index: 20; align-items: flex-end; justify-content: center; }
+  .sheet-bg.on { display: flex; }
+  .sheet { background: var(--bg); width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto; border-radius: 22px 22px 0 0;
+    padding: 18px 16px calc(var(--safe-b) + 20px); animation: up .2s ease; }
+  @keyframes up { from { transform: translateY(40px); opacity: .5; } to { transform: none; opacity: 1; } }
+  .sheet .grab { width: 40px; height: 5px; border-radius: 9px; background: var(--line); margin: 0 auto 14px; }
+  .set { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--line); gap: 12px; }
+  .set select { background: var(--card); color: var(--text); border: 0; border-radius: 10px; padding: 8px 10px; }
+  .toggle { width: 50px; height: 30px; border-radius: 99px; background: var(--card2); position: relative; flex: none; }
+  .toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: left .15s; }
+  .toggle.on { background: var(--good); }
+  .toggle.on::after { left: 23px; }
+  #toast { position: fixed; left: 50%; bottom: calc(var(--safe-b) + 90px); transform: translateX(-50%); background: #fff; color: #111;
+    padding: 10px 16px; border-radius: 12px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; white-space: nowrap; }
+  #toast.on { opacity: 1; }
+  .empty { text-align: center; padding: 50px 0; color: var(--sub); }
+  .empty .e { font-size: 44px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <section class="screen" id="s-home"></section>
+  <section class="screen" id="s-learn"></section>
+  <section class="screen" id="s-quiz"></section>
+  <section class="screen" id="s-list"></section>
+</div>
+
+<nav><div class="in">
+  <button data-tab="home"><span class="e">🏠</span>홈</button>
+  <button data-tab="learn"><span class="e">🃏</span>학습</button>
+  <button data-tab="quiz"><span class="e">✏️</span>퀴즈</button>
+  <button data-tab="list"><span class="e">📚</span>단어장</button>
+</div></nav>
+
+<div class="sheet-bg" id="sheet"><div class="sheet" id="sheet-body"></div></div>
+<div id="toast"></div>
+
+<script src="words.js"></script>
+<script>
+// ===== 설정 =====
+const SHEET_ID = '1piED03gBczbOmcBwXJ7dqLZo19BM-8t6qAJMfgWgiXA';
+const SHEET_GID = '0';
+const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`;
+const DAYS = [0, 1, 3, 7, 14, 30, 60];   // 박스별 복습 간격(일)
+const MASTER_BOX = 4;                    // 이 박스 이상이면 "외움"
+const DAY_MS = 864e5;
+
+const LS = { words: 'voca.words.v1', prog: 'voca.progress.v1', set: 'voca.settings.v1', daily: 'voca.daily.v1' };
+const load = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+const store = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+let WORDS = load(LS.words) || window.WORDS_BUILTIN || [];
+let P = load(LS.prog) || {};                       // id -> { b: 박스, d: 다음 복습 시각, n: 본 횟수, x: 틀린 횟수, f: 즐겨찾기 }
+let S = Object.assign({ daily: 20, rate: 0.9, auto: true, lastSync: 0 }, load(LS.set) || {});
+let D = Object.assign({ date: '', n: 0, streak: 0, last: '' }, load(LS.daily) || {});
+
+const idOf = (w) => w.w.toLowerCase();
+const rec = (w) => P[idOf(w)];
+const box = (w) => (rec(w) && rec(w).b) || 0;
+const status = (w) => { const b = box(w); return b === 0 ? 'new' : b >= MASTER_BOX ? 'done' : 'learn'; };
+const STATUS_LABEL = { new: '새 단어', learn: '학습중', done: '외움' };
+const STATUS_COLOR = { new: 'var(--accent)', learn: 'var(--warn)', done: 'var(--good)' };
+const isDue = (w) => { const r = rec(w); return r && r.b > 0 && r.d <= Date.now(); };
+const saveP = () => store(LS.prog, P);
+const saveS = () => store(LS.set, S);
+
+const $ = (sel, el = document) => el.querySelector(sel);
+const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 1800);
+}
+
+// ===== 오늘 학습량 / 연속 학습일 =====
+function bumpDaily() {
+  const t = today();
+  if (D.date !== t) {
+    const y = new Date(Date.now() - DAY_MS);
+    const yesterday = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
+    D.streak = D.last === yesterday ? D.streak + 1 : 1;
+    D.date = t; D.n = 0;
+  }
+  D.n++; D.last = t; store(LS.daily, D);
+}
+const todayCount = () => (D.date === today() ? D.n : 0);
+const streakNow = () => {
+  const y = new Date(Date.now() - DAY_MS);
+  const yesterday = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
+  return D.last === today() || D.last === yesterday ? D.streak : 0;
+};
+
+// ===== 간격 반복(Leitner) =====
+function grade(w, ok) {
+  const id = idOf(w);
+  const r = P[id] || { b: 0, d: 0, n: 0, x: 0 };
+  r.n = (r.n || 0) + 1;
+  if (ok) { r.b = Math.min((r.b || 0) + 1, DAYS.length - 1); r.d = Date.now() + DAYS[r.b] * DAY_MS; }
+  else { r.x = (r.x || 0) + 1; r.b = 1; r.d = Date.now(); }
+  P[id] = r; saveP();
+}
+function toggleFav(w) {
+  const id = idOf(w); P[id] = P[id] || { b: 0, d: 0, n: 0, x: 0 };
+  P[id].f = !P[id].f; saveP(); return P[id].f;
+}
+
+// ===== 발음(TTS) =====
+let voice = null;
+function pickVoice() {
+  const vs = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  const en = vs.filter((v) => /^en[-_]US/i.test(v.lang));
+  voice = en.find((v) => /Samantha|Ava|Google|Natural|Premium|Enhanced/i.test(v.name)) || en[0] || vs.find((v) => /^en/i.test(v.lang)) || null;
+}
+if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(text) {
+  if (!window.speechSynthesis || !text) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; if (voice) u.voice = voice; u.rate = S.rate;
+  speechSynthesis.speak(u);
+}
+
+// ===== 예문 하이라이트 / 빈칸 =====
+function wordRe(w, flags) {
+  const ps = w.w.split(/[,/]/).map((s) => s.trim()).filter((s) => s.length > 1).sort((a, b) => b.length - a.length);
+  if (!ps.length) return null;
+  const src = ps.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')).join('|');
+  return new RegExp(`(${src})`, flags);
+}
+function markSentence(w, mode) {
+  const s = w.ex || '';
+  const re = wordRe(w, 'gi');
+  if (!re || !wordRe(w, 'i').test(s)) return mode === 'blank' ? null : esc(s);
+  const tagged = esc(s.replace(re, '\u0001$1\u0002'));
+  return mode === 'blank'
+    ? tagged.replace(/\u0001[^\u0002]*\u0002/g, '<span class="blank">_____</span>')
+    : tagged.replace(/\u0001/g, '<mark>').replace(/\u0002/g, '</mark>');
+}
+
+// ===== 구글 시트 동기화 =====
+function parseCSV(t) {
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (c !== '\r') f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+function rowsToWords(rows) {
+  const h = rows[0].map((x) => x.trim().toLowerCase());
+  const col = (name, def) => { const i = h.indexOf(name.toLowerCase()); return i >= 0 ? i : def; };
+  const c = { w: col('word', 0), m: col('뜻', 1), a: col('연상', 2), syn: col('synonym', 3), ex: col('sentence', 4), tr: col('번역', 5) };
+  const out = [], seen = new Set();
+  for (const r of rows.slice(1)) {
+    const g = (k) => (r[c[k]] || '').trim();
+    const w = g('w'), m = g('m');
+    if (!w || !m || seen.has(w.toLowerCase())) continue;
+    seen.add(w.toLowerCase());
+    out.push({ w, m, a: g('a').toUpperCase() === 'TRUE', syn: g('syn'), ex: g('ex'), tr: g('tr') });
+  }
+  return out;
+}
+async function syncSheet(silent) {
+  try {
+    const res = await fetch(`${SHEET_URL}&t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status);
+    const list = rowsToWords(parseCSV(await res.text()));
+    if (!list.length) throw new Error('empty');
+    const added = list.filter((w) => !WORDS.some((o) => idOf(o) === idOf(w))).length;
+    WORDS = list; store(LS.words, WORDS);
+    S.lastSync = Date.now(); saveS();
+    if (!silent || added) toast(added ? `새 단어 ${added}개 추가됨 (총 ${list.length}개)` : `최신 상태예요 (총 ${list.length}개)`);
+    render();
+  } catch (e) {
+    if (!silent) toast('동기화 실패 — 인터넷 연결을 확인하세요');
+  }
+}
+
+// ===== 화면 전환 =====
+let tab = 'home';
+function go(t) {
+  tab = t;
+  document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('on', s.id === 's-' + t));
+  document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
+  render(); window.scrollTo(0, 0);
+}
+function render() {
+  ({ home: renderHome, learn: renderLearn, quiz: renderQuiz, list: renderList })[tab]();
+}
+document.querySelectorAll('nav button').forEach((b) => b.onclick = () => go(b.dataset.tab));
+
+// ===== 홈 =====
+function counts() {
+  const c = { new: 0, learn: 0, done: 0, due: 0, fav: 0 };
+  for (const w of WORDS) { c[status(w)]++; if (isDue(w)) c.due++; if (rec(w) && rec(w).f) c.fav++; }
+  return c;
+}
+function renderHome() {
+  const c = counts(), total = WORDS.length || 1;
+  const nNew = Math.min(S.daily, c.new);
+  $('#s-home').innerHTML = `
+    <div class="top"><h1>내 단어장</h1><button class="icon-btn" id="btn-set">⚙️</button></div>
+    <div class="box streak">
+      <div class="fire">🔥</div>
+      <div><b>${streakNow()}일 연속 학습</b><div class="muted">오늘 ${todayCount()}개 학습했어요</div></div>
+    </div>
+    <button class="btn primary" id="btn-today" style="margin-bottom:12px">
+      오늘의 학습 시작<small>복습 ${c.due}개 · 새 단어 ${nNew}개</small>
+    </button>
+    <div class="box">
+      <div class="stats">
+        <div><b style="color:var(--accent)">${c.new}</b><span>새 단어</span></div>
+        <div><b style="color:var(--warn)">${c.learn}</b><span>학습중</span></div>
+        <div><b style="color:var(--good)">${c.done}</b><span>외움</span></div>
+      </div>
+      <div class="bar">
+        <i style="width:${c.done / total * 100}%;background:var(--good)"></i>
+        <i style="width:${c.learn / total * 100}%;background:var(--warn)"></i>
+      </div>
+      <div class="muted">전체 ${WORDS.length}개 중 ${Math.round(c.done / total * 100)}% 외움</div>
+    </div>
+    <div class="menu">
+      <button data-src="weak"><span class="e">🎯</span><b>약한 단어</b><span>학습중 ${c.learn}개</span></button>
+      <button data-src="fav"><span class="e">⭐</span><b>즐겨찾기</b><span>${c.fav}개</span></button>
+      <button data-src="random"><span class="e">🎲</span><b>랜덤 20</b><span>전체에서 무작위</span></button>
+      <button id="btn-quiz"><span class="e">✏️</span><b>퀴즈</b><span>실력 확인</span></button>
+    </div>`;
+  $('#btn-set').onclick = openSettings;
+  $('#btn-today').onclick = () => startLearn('today');
+  $('#btn-quiz').onclick = () => go('quiz');
+  document.querySelectorAll('#s-home [data-src]').forEach((b) => b.onclick = () => startLearn(b.dataset.src));
+}
+
+// ===== 학습(플래시카드) =====
+let L = null; // { queue, i, src, known, unknown, seen:Set, flipped }
+function buildQueue(src) {
+  if (src === 'today') {
+    const due = WORDS.filter(isDue).sort((a, b) => rec(a).d - rec(b).d);
+    const fresh = WORDS.filter((w) => status(w) === 'new').slice(0, S.daily);
+    return [...due, ...fresh];
+  }
+  if (src === 'weak') return shuffle(WORDS.filter((w) => status(w) === 'learn'));
+  if (src === 'fav') return shuffle(WORDS.filter((w) => rec(w) && rec(w).f));
+  if (src === 'more') return WORDS.filter((w) => status(w) === 'new').slice(0, S.daily);
+  return shuffle(WORDS).slice(0, 20);
+}
+function startLearn(src) {
+  const queue = buildQueue(src);
+  if (!queue.length) {
+    toast({ today: '오늘 학습할 단어가 없어요 🎉', weak: '학습중인 단어가 없어요', fav: '즐겨찾기한 단어가 없어요', more: '새 단어를 모두 학습했어요' }[src] || '단어가 없어요');
+    if (tab !== 'learn') return;
+  }
+  L = { queue, i: 0, src, known: 0, unknown: 0, seen: new Set(), flipped: false };
+  if (tab !== 'learn') go('learn'); else renderLearn();
+  autoSpeak();
+}
+function autoSpeak() { if (S.auto && L && L.queue[L.i]) speak(L.queue[L.i].w); }
+
+function renderLearn() {
+  const el = $('#s-learn');
+  if (!L || !L.queue.length) {
+    const c = counts();
+    el.innerHTML = `
+      <div class="top"><h1>학습</h1></div>
+      <div class="empty"><div class="e">🃏</div>학습할 세트를 골라주세요</div>
+      <button class="btn primary" data-src="today" style="margin-bottom:10px">오늘의 학습<small>복습 ${c.due}개 · 새 단어 ${Math.min(S.daily, c.new)}개</small></button>
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn" data-src="weak">🎯 약한 단어</button>
+        <button class="btn" data-src="fav">⭐ 즐겨찾기</button>
+      </div>
+      <button class="btn" data-src="random">🎲 랜덤 20개</button>`;
+    el.querySelectorAll('[data-src]').forEach((b) => b.onclick = () => startLearn(b.dataset.src));
+    return;
+  }
+  if (L.i >= L.queue.length) {
+    const c = counts();
+    el.innerHTML = `
+      <div class="top"><h1>학습 완료</h1></div>
+      <div class="result"><div class="e" style="font-size:56px">🎉</div>
+        <p class="muted">알아요 ${L.known} · 모름 ${L.unknown}</p></div>
+      ${c.new ? `<button class="btn primary" id="more" style="margin-bottom:10px">새 단어 ${Math.min(S.daily, c.new)}개 더 학습</button>` : ''}
+      <div class="row"><button class="btn" id="toquiz">✏️ 퀴즈 풀기</button><button class="btn" id="tohome">🏠 홈으로</button></div>`;
+    if ($('#more', el)) $('#more', el).onclick = () => startLearn('more');
+    $('#toquiz', el).onclick = () => go('quiz');
+    $('#tohome', el).onclick = () => { L = null; go('home'); };
+    return;
+  }
+  const w = L.queue[L.i], st = status(w), fav = rec(w) && rec(w).f;
+  const isReview = rec(w) && rec(w).b > 0;
+  el.innerHTML = `
+    <div class="top">
+      <button class="icon-btn" id="quit">✕</button>
+      <div class="muted">${L.i + 1} / ${L.queue.length}</div>
+      <button class="icon-btn star ${fav ? 'on' : ''}" id="fav">${fav ? '★' : '☆'}</button>
+    </div>
+    <div class="progress"><i style="width:${L.i / L.queue.length * 100}%"></i></div>
+    <div class="card" id="card">
+      <div class="head">
+        <span class="badge ${st}">${isReview ? '복습' : STATUS_LABEL[st]}</span>
+        ${w.a ? '<span class="badge">🔗 연상</span>' : ''}
+      </div>
+      <div class="word">${esc(w.w)}</div>
+      <div class="speak"><button class="speak-btn" id="say">🔊 발음 듣기</button></div>
+      ${L.flipped ? `
+        <div class="back">
+          <div class="meaning">${esc(w.m)}</div>
+          ${w.syn ? `<div class="syn">≈ ${esc(w.syn)}</div>` : ''}
+          ${w.ex ? `<div class="ex">
+            <div class="en">${markSentence(w)}</div>
+            ${w.tr ? `<div class="ko">${esc(w.tr)}</div>` : ''}
+            <div class="tools"><button id="sayex">🔊 예문 듣기</button></div>
+          </div>` : ''}
+        </div>` : `<div class="hint">카드를 탭하면 뜻이 보여요</div>`}
+    </div>
+    <div class="actions">
+      ${L.flipped
+        ? `<div class="row"><button class="btn bad" id="no">모름</button><button class="btn good" id="yes">알아요</button></div>`
+        : `<button class="btn primary" id="flip">뜻 보기</button>`}
+    </div>`;
+  $('#quit', el).onclick = () => { L = null; renderLearn(); };
+  $('#fav', el).onclick = () => { toggleFav(w); renderLearn(); };
+  $('#say', el).onclick = (e) => { e.stopPropagation(); speak(w.w); };
+  if ($('#sayex', el)) $('#sayex', el).onclick = (e) => { e.stopPropagation(); speak(w.ex); };
+  if ($('#flip', el)) $('#flip', el).onclick = flip;
+  if ($('#yes', el)) $('#yes', el).onclick = () => answer(true);
+  if ($('#no', el)) $('#no', el).onclick = () => answer(false);
+  const card = $('#card', el);
+  card.onclick = () => { if (!L.flipped) flip(); };
+  // 스와이프: 뜻 확인 후 → 알아요, ← 모름
+  let x0 = null;
+  card.ontouchstart = (e) => { x0 = e.touches[0].clientX; };
+  card.ontouchend = (e) => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0; x0 = null;
+    if (Math.abs(dx) < 60) return;
+    if (!L.flipped) return flip();
+    card.classList.add(dx > 0 ? 'swipe-r' : 'swipe-l');
+    setTimeout(() => answer(dx > 0), 120);
+  };
+}
+function flip() { L.flipped = true; renderLearn(); }
+function answer(ok) {
+  const w = L.queue[L.i];
+  grade(w, ok);
+  if (!L.seen.has(idOf(w))) { L.seen.add(idOf(w)); bumpDaily(); ok ? L.known++ : L.unknown++; }
+  // 모르는 단어는 세 장 뒤에 다시 등장
+  if (!ok) L.queue.splice(Math.min(L.i + 4, L.queue.length), 0, w);
+  L.i++; L.flipped = false;
+  renderLearn(); autoSpeak();
+}
+
+// ===== 퀴즈 =====
+let Q = null; // { mode, items, i, score, picked, wrong }
+const QUIZ_MODES = {
+  en: { label: '영어 → 뜻', desc: '단어를 보고 뜻 고르기' },
+  ko: { label: '뜻 → 영어', desc: '뜻을 보고 단어 고르기' },
+  blank: { label: '예문 빈칸', desc: '문장 속 빈칸에 들어갈 단어' },
+  listen: { label: '듣기', desc: '발음을 듣고 뜻 고르기' },
+};
+function startQuiz(mode, pool) {
+  let base = pool || WORDS;
+  if (mode === 'blank') base = base.filter((w) => markSentence(w, 'blank'));
+  const studied = base.filter((w) => status(w) !== 'new');
+  const src = pool ? base : (studied.length >= 10 ? studied : base);
+  const picks = shuffle(src).slice(0, 10);
+  if (picks.length < 1 || WORDS.length < 4) return toast('퀴즈를 만들 단어가 부족해요');
+  const items = picks.map((w) => {
+    const key = mode === 'ko' || mode === 'blank' ? 'w' : 'm';
+    const others = shuffle(WORDS.filter((o) => o[key] !== w[key])).slice(0, 3);
+    return { w, key, opts: shuffle([w, ...others]) };
+  });
+  Q = { mode, items, i: 0, score: 0, picked: null, wrong: [] };
+  renderQuiz(); quizSpeak();
+}
+function quizSpeak() {
+  const it = Q && Q.mode === 'listen' && Q.items[Q.i];
+  if (it) setTimeout(() => { if (Q && Q.items[Q.i] === it) speak(it.w.w); }, 200);
+}
+function renderQuiz() {
+  const el = $('#s-quiz');
+  if (!Q) {
+    el.innerHTML = `<div class="top"><h1>퀴즈</h1></div>
+      <p class="muted" style="margin-top:-6px">학습한 단어 위주로 10문제가 나와요</p>
+      <div class="opts">${Object.entries(QUIZ_MODES).map(([k, m]) =>
+        `<button class="opt" data-mode="${k}"><b>${m.label}</b><div class="muted">${m.desc}</div></button>`).join('')}</div>`;
+    el.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => startQuiz(b.dataset.mode));
+    return;
+  }
+  if (Q.i >= Q.items.length) {
+    const pct = Math.round(Q.score / Q.items.length * 100);
+    el.innerHTML = `<div class="top"><h1>결과</h1></div>
+      <div class="result"><div class="score">${Q.score}<span class="muted" style="font-size:22px"> / ${Q.items.length}</span></div>
+        <p class="muted">${pct >= 90 ? '완벽해요! 🏆' : pct >= 60 ? '잘했어요 👍' : '조금 더 복습해봐요 💪'}</p></div>
+      ${Q.wrong.length ? `<div class="box"><div class="muted" style="margin-bottom:6px">틀린 단어 (학습중으로 이동됨)</div>
+        ${Q.wrong.map((w) => `<div class="item"><div class="t"><b>${esc(w.w)}</b><span>${esc(w.m)}</span></div></div>`).join('')}</div>
+        <button class="btn primary" id="retry-wrong" style="margin-bottom:10px">틀린 단어 다시 풀기</button>` : ''}
+      <div class="row"><button class="btn" id="again">다시 하기</button><button class="btn" id="modes">모드 선택</button></div>`;
+    if ($('#retry-wrong', el)) { const wrong = Q.wrong.slice(); $('#retry-wrong', el).onclick = () => startQuiz(Q.mode, wrong); }
+    $('#again', el).onclick = () => startQuiz(Q.mode);
+    $('#modes', el).onclick = () => { Q = null; renderQuiz(); };
+    return;
+  }
+  const it = Q.items[Q.i], w = it.w;
+  let prompt;
+  if (Q.mode === 'en') prompt = `<div class="prompt">${esc(w.w)}</div><button class="speak-btn" id="say">🔊</button>`;
+  else if (Q.mode === 'ko') prompt = `<div class="prompt">${esc(w.m)}</div>`;
+  else if (Q.mode === 'listen') prompt = `<div class="prompt">🎧</div><button class="speak-btn" id="say">🔊 다시 듣기</button>`;
+  else prompt = `<div class="prompt sm">${markSentence(w, 'blank')}</div>${w.tr ? `<div class="muted" style="text-align:left">${esc(w.tr)}</div>` : ''}`;
+  el.innerHTML = `
+    <div class="top"><button class="icon-btn" id="quit">✕</button><div class="muted">${Q.i + 1} / ${Q.items.length}</div><div style="width:40px"></div></div>
+    <div class="progress"><i style="width:${Q.i / Q.items.length * 100}%"></i></div>
+    <div class="q">${prompt}</div>
+    <div class="opts">${it.opts.map((o, k) => {
+      let cls = '';
+      if (Q.picked !== null) { if (o === w) cls = 'right'; else if (k === Q.picked) cls = 'wrong'; }
+      return `<button class="opt ${cls}" data-k="${k}">${esc(o[it.key])}</button>`;
+    }).join('')}</div>
+    ${Q.picked !== null ? `<div class="box" style="margin-top:12px"><b>${esc(w.w)}</b> — ${esc(w.m)}
+      ${w.ex ? `<div class="muted" style="margin-top:6px;line-height:1.5">${markSentence(w)}</div>` : ''}</div>
+      <button class="btn primary" id="next">${Q.i + 1 < Q.items.length ? '다음' : '결과 보기'}</button>` : ''}`;
+  $('#quit', el).onclick = () => { Q = null; renderQuiz(); };
+  if ($('#say', el)) $('#say', el).onclick = () => speak(w.w);
+  el.querySelectorAll('[data-k]').forEach((b) => b.onclick = () => pick(+b.dataset.k));
+  if ($('#next', el)) $('#next', el).onclick = () => { Q.i++; Q.picked = null; renderQuiz(); quizSpeak(); };
+}
+function pick(k) {
+  if (Q.picked !== null) return;
+  const it = Q.items[Q.i];
+  Q.picked = k;
+  const ok = it.opts[k] === it.w;
+  if (ok) Q.score++;
+  else { Q.wrong.push(it.w); grade(it.w, false); }
+  bumpDaily();
+  if (navigator.vibrate) navigator.vibrate(ok ? 15 : [30, 40, 30]);
+  if (Q.mode !== 'listen') speak(it.w.w);
+  renderQuiz();
+}
+
+// ===== 단어장(목록/검색) =====
+let F = { q: '', filter: 'all' };
+const FILTERS = { all: '전체', new: '새 단어', learn: '학습중', done: '외움', fav: '⭐ 즐겨찾기', assoc: '🔗 연상' };
+function renderList() {
+  const el = $('#s-list');
+  if (!$('#search', el)) {
+    el.innerHTML = `<div class="top"><h1>단어장</h1><span class="muted" id="cnt"></span></div>
+      <input class="search" id="search" type="search" placeholder="단어, 뜻, 예문 검색" autocomplete="off">
+      <div class="chips" id="chips"></div><div id="items"></div>`;
+    $('#search').oninput = (e) => { F.q = e.target.value.trim().toLowerCase(); drawList(); };
+  }
+  $('#search').value = F.q;
+  $('#chips').innerHTML = Object.entries(FILTERS).map(([k, v]) => `<button class="chip ${F.filter === k ? 'on' : ''}" data-f="${k}">${v}</button>`).join('');
+  $('#chips').querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { F.filter = b.dataset.f; renderList(); });
+  drawList();
+}
+function drawList() {
+  const q = F.q;
+  const list = WORDS.filter((w) => {
+    if (F.filter === 'fav' && !(rec(w) && rec(w).f)) return false;
+    if (F.filter === 'assoc' && !w.a) return false;
+    if (['new', 'learn', 'done'].includes(F.filter) && status(w) !== F.filter) return false;
+    return !q || [w.w, w.m, w.syn, w.ex, w.tr].some((s) => (s || '').toLowerCase().includes(q));
+  });
+  $('#cnt').textContent = `${list.length}개`;
+  const shown = list.slice(0, 300);
+  $('#items').innerHTML = shown.length ? shown.map((w) => {
+    const i = WORDS.indexOf(w), fav = rec(w) && rec(w).f;
+    return `<div class="item" data-i="${i}">
+      <span class="dot" style="background:${STATUS_COLOR[status(w)]}"></span>
+      <div class="t"><b>${esc(w.w)}</b><span>${esc(w.m)}</span></div>
+      <button class="star ${fav ? 'on' : ''}" data-star="${i}">${fav ? '★' : '☆'}</button></div>`;
+  }).join('') + (list.length > 300 ? `<div class="empty">검색어로 더 좁혀보세요 (${list.length}개 중 300개 표시)</div>` : '')
+    : `<div class="empty"><div class="e">🔍</div>해당하는 단어가 없어요</div>`;
+  $('#items').querySelectorAll('.item').forEach((r) => r.onclick = (e) => {
+    const s = e.target.closest('[data-star]');
+    const w = WORDS[+r.dataset.i];
+    if (s) { const on = toggleFav(w); s.classList.toggle('on', on); s.textContent = on ? '★' : '☆'; return; }
+    openDetail(w);
+  });
+}
+function openDetail(w) {
+  const st = status(w), r = rec(w);
+  openSheet(`
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span class="badge ${st}">${STATUS_LABEL[st]}</span>${w.a ? '<span class="badge">🔗 연상</span>' : ''}
+    </div>
+    <div style="font-size:30px;font-weight:800;margin:16px 0 4px">${esc(w.w)}</div>
+    <button class="speak-btn" id="d-say">🔊 발음</button>
+    <div class="meaning" style="text-align:left;margin:16px 0 6px">${esc(w.m)}</div>
+    ${w.syn ? `<div class="syn" style="text-align:left">≈ ${esc(w.syn)}</div>` : ''}
+    ${w.ex ? `<div class="ex"><div class="en">${markSentence(w)}</div>${w.tr ? `<div class="ko">${esc(w.tr)}</div>` : ''}
+      <div class="tools"><button id="d-sayex">🔊 예문 듣기</button></div></div>` : ''}
+    ${r && r.n ? `<p class="muted">학습 ${r.n}회 · 틀림 ${r.x || 0}회${r.b > 0 ? ` · 다음 복습 ${r.d <= Date.now() ? '지금' : new Date(r.d).toLocaleDateString('ko-KR')}` : ''}</p>` : ''}
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="d-fav">${r && r.f ? '★ 즐겨찾기 해제' : '☆ 즐겨찾기'}</button>
+      <button class="btn" id="d-reset">처음부터</button>
+    </div>`);
+  $('#d-say').onclick = () => speak(w.w);
+  if ($('#d-sayex')) $('#d-sayex').onclick = () => speak(w.ex);
+  $('#d-fav').onclick = () => { toggleFav(w); openDetail(w); render(); };
+  $('#d-reset').onclick = () => { const f = rec(w) && rec(w).f; P[idOf(w)] = { b: 0, d: 0, n: 0, x: 0, f }; saveP(); openDetail(w); render(); toast('새 단어로 되돌렸어요'); };
+}
+
+// ===== 시트(모달) / 설정 =====
+function openSheet(html) { $('#sheet-body').innerHTML = `<div class="grab"></div>${html}`; $('#sheet').classList.add('on'); }
+function closeSheet() { $('#sheet').classList.remove('on'); }
+$('#sheet').onclick = (e) => { if (e.target.id === 'sheet') closeSheet(); };
+
+function openSettings() {
+  const opt = (vals, cur, fmt) => vals.map((v) => `<option value="${v}" ${v == cur ? 'selected' : ''}>${fmt(v)}</option>`).join('');
+  openSheet(`
+    <h2 style="margin:0 0 6px">설정</h2>
+    <div class="set"><div>하루 새 단어<div class="muted">오늘의 학습에 포함될 새 단어 수</div></div>
+      <select id="o-daily">${opt([5, 10, 15, 20, 30, 50], S.daily, (v) => v + '개')}</select></div>
+    <div class="set"><div>발음 속도</div>
+      <select id="o-rate">${opt([0.6, 0.75, 0.9, 1, 1.15], S.rate, (v) => v + 'x')}</select></div>
+    <div class="set"><div>카드 자동 발음<div class="muted">카드가 넘어갈 때 단어 읽어주기</div></div>
+      <button class="toggle ${S.auto ? 'on' : ''}" id="o-auto"></button></div>
+    <div class="set"><div>구글 시트 동기화<div class="muted">${S.lastSync ? '마지막: ' + new Date(S.lastSync).toLocaleString('ko-KR') : '아직 안 함'} · ${WORDS.length}개</div></div>
+      <button class="chip on" id="o-sync">지금 동기화</button></div>
+    <div class="set"><div>학습 기록 백업<div class="muted">기기를 바꿀 때 파일로 옮기기</div></div>
+      <div style="display:flex;gap:6px"><button class="chip" id="o-exp">내보내기</button><button class="chip" id="o-imp">불러오기</button></div></div>
+    <div class="set"><div style="color:var(--bad)">학습 기록 초기화</div><button class="chip" id="o-reset">초기화</button></div>
+    <input type="file" id="o-file" accept="application/json" hidden>
+    <p class="muted" style="margin-top:16px;line-height:1.5">시트에 단어를 추가하면 앱을 열 때 자동으로 반영돼요. 학습 기록은 이 기기에만 저장됩니다.</p>`);
+  $('#o-daily').onchange = (e) => { S.daily = +e.target.value; saveS(); render(); };
+  $('#o-rate').onchange = (e) => { S.rate = +e.target.value; saveS(); speak('Hello, this is the speed.'); };
+  $('#o-auto').onclick = (e) => { S.auto = !S.auto; saveS(); e.target.classList.toggle('on', S.auto); };
+  $('#o-sync').onclick = async () => { $('#o-sync').textContent = '동기화 중…'; await syncSheet(false); openSettings(); };
+  $('#o-exp').onclick = () => {
+    const blob = new Blob([JSON.stringify({ P, D, S, at: Date.now() })], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `voca-backup-${today()}.json`; a.click();
+  };
+  $('#o-imp').onclick = () => $('#o-file').click();
+  $('#o-file').onchange = async (e) => {
+    try {
+      const j = JSON.parse(await e.target.files[0].text());
+      if (!j.P) throw 0;
+      P = j.P; saveP(); if (j.D) { D = j.D; store(LS.daily, D); }
+      toast('학습 기록을 불러왔어요'); closeSheet(); render();
+    } catch { toast('올바른 백업 파일이 아니에요'); }
+  };
+  $('#o-reset').onclick = () => {
+    if (!confirm('모든 학습 기록과 즐겨찾기를 지울까요?')) return;
+    P = {}; saveP(); D = { date: '', n: 0, streak: 0, last: '' }; store(LS.daily, D); L = null; Q = null;
+    toast('초기화했어요'); closeSheet(); render();
+  };
+}
+
+// ===== 키보드(PC에서 쓸 때) =====
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (tab === 'learn' && L && L.i < L.queue.length) {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!L.flipped) flip(); }
+    else if (L.flipped && e.key === 'ArrowRight') answer(true);
+    else if (L.flipped && e.key === 'ArrowLeft') answer(false);
+  } else if (tab === 'quiz' && Q && Q.i < Q.items.length) {
+    if (Q.picked === null && /^[1-4]$/.test(e.key)) pick(+e.key - 1);
+    else if (Q.picked !== null && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); $('#next', $('#s-quiz')).click(); }
+  }
+});
+
+// ===== 시작 =====
+go('home');
+if (navigator.onLine) syncSheet(true);
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
